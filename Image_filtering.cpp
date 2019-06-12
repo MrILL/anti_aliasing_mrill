@@ -4,17 +4,15 @@
 
 #include "Image_filtering.h"
 
-using std::cout;//
-using std::endl;//
 using std::vector;
 
 template<typename T>
-unsigned char to_uchar(T data) {
+static unsigned char to_uchar(T data) {
 	return static_cast<unsigned char>((data > 255) ? 255 : (data < 0) ? 0 : data);
 }
 
 template<typename T, size_t size_row, size_t size_col>
-void copy_2d_array(T **&out, unsigned &size, const T(&in)[size_row][size_col]) {
+static void copy_2d_array(T **&out, unsigned &size, const T(&in)[size_row][size_col]) {
 	size = size_row;
 	out = new T*[size];
 	for (size_t i = 0; i < size; i++) {
@@ -24,16 +22,7 @@ void copy_2d_array(T **&out, unsigned &size, const T(&in)[size_row][size_col]) {
 	}
 }
 
-void output_sqr(vector<unsigned char> image, unsigned width, unsigned height, unsigned lenght) {
-	for (unsigned i = 0; i < lenght; i++) {
-		for (unsigned j = 0; j < lenght; j++) {
-			cout << (int)image[i*width * 4 + j * 4] << ' ' << (int)image[i*width * 4 + j * 4 + 1] << ' ' << (int)image[i*width * 4 + j * 4 + 2] << ' ' << (int)image[i*width * 4 + j * 4 + 3] << '|';
-		}
-		cout << endl;
-	}
-}
-
-void get_mask(float **&out, unsigned &out_size, enum kernel type) {
+void get_mask(float **&out, unsigned &out_size, kernel type) {
 	switch (type) {
 	case edge_detection_v1:
 		copy_2d_array(out, out_size, mask_edge_detection_v1);
@@ -64,12 +53,9 @@ void get_mask(float **&out, unsigned &out_size, enum kernel type) {
 	//out = mask_edge_detection_2;
 }
 
-void get_mask(float(&out)[3][3]) {
-	get_mask(out, edge_detection_v1);
-}//
-
-
-void convolution_pixel(float **mask, unsigned mask_size, vector<unsigned char> &out, vector<unsigned char> &in, unsigned width, unsigned height, unsigned x, unsigned y) {
+static void convolution_pixel(float **mask, unsigned mask_size,
+					   std::vector<unsigned char> &out, std::vector<unsigned char> &in, unsigned width, unsigned height, 
+					   unsigned x, unsigned y) {
 	float convolution_R = 0;
 	float convolution_G = 0;
 	float convolution_B = 0;
@@ -87,36 +73,31 @@ void convolution_pixel(float **mask, unsigned mask_size, vector<unsigned char> &
 	out[y*width * 4 + x * 4 + 3] = in[y*width * 4 + x * 4 + 3]; /*alpha chanel without difference*/
 }
 
-vector<unsigned char> applied_mask(float **mask, unsigned mask_size, vector<unsigned char> image, unsigned width, unsigned height) {
+vector<unsigned char> applied_mask(float **mask, unsigned mask_size, 
+								   vector<unsigned char> image, unsigned width, unsigned height) {
 	vector<unsigned char> new_image;
 	new_image.resize(width*height*4);
-	
-	for (unsigned y = 0; y < height; y++) { // x=const
-		//x=0
-		new_image[y*width * 4 + 0] = image[y*width * 4 + 0];
-		new_image[y*width * 4 + 1] = image[y*width * 4 + 1];
-		new_image[y*width * 4 + 2] = image[y*width * 4 + 2];
-		new_image[y*width * 4 + 3] = image[y*width * 4 + 3];
-		//x=width-1
-		new_image[y*width * 4 + (width - 1) * 4 + 0] = image[y*width * 4 + (width - 1) * 4 + 0];
-		new_image[y*width * 4 + (width - 1) * 4 + 1] = image[y*width * 4 + (width - 1) * 4 + 1];
-		new_image[y*width * 4 + (width - 1) * 4 + 2] = image[y*width * 4 + (width - 1) * 4 + 2];
-		new_image[y*width * 4 + (width - 1) * 4 + 3] = image[y*width * 4 + (width - 1) * 4 + 3];
-	}
-	for (unsigned x = 0; x < width; x++) { //y=const
-		//y=0
-		new_image[x * 4 + 0] = image[x * 4 + 0];
-		new_image[x * 4 + 1] = image[x * 4 + 1];
-		new_image[x * 4 + 2] = image[x * 4 + 2];
-		new_image[x * 4 + 3] = image[x * 4 + 3];
-		//y=height-1
-		new_image[(height - 1)*width * 4 + x * 4 + 0] = image[(height - 1)*width * 4 + x * 4 + 0];
-		new_image[(height - 1)*width * 4 + x * 4 + 1] = image[(height - 1)*width * 4 + x * 4 + 1];
-		new_image[(height - 1)*width * 4 + x * 4 + 2] = image[(height - 1)*width * 4 + x * 4 + 2];
-		new_image[(height - 1)*width * 4 + x * 4 + 3] = image[(height - 1)*width * 4 + x * 4 + 3];
-	}
 
 	unsigned offset = mask_size / 2;
+	
+	
+	for (unsigned color = 0; color < 4; color++) {//fill border of image
+		for (unsigned indent = 0; indent < offset; indent++) {
+			for (unsigned y = 0; y < height; y++) {
+				// 0<x<indent - left border
+				new_image[y*width*4 + indent*4 + color] = image[y*width*4 + indent*4 + color];
+				// width-1-indent<x<width-1 - right border
+				new_image[y*width*4 + (width-1-indent)*4 + color] = image[y*width*4 + (width-1-indent)*4 + color];
+			}
+			for (unsigned x = 0; x < width; x++) {
+				// 0<y<indent - top border
+				new_image[indent*width*4 + x*4 + color] = image[indent*width*4 + x*4 + color];
+				// height-1-indent<y<height-1 - bottom border
+				new_image[(height-1-indent)*width*4 + x*4 + color] = image[(height-1-indent)*width*4 + x*4 + color];
+			}
+		}
+	}
+
 	for (unsigned i = offset; i < width- offset; i++) {
 		for (unsigned j = offset; j < height- offset; j++) {
 			convolution_pixel(mask, mask_size, new_image, image, width, height, i, j);
