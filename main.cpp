@@ -14,7 +14,7 @@ int main() {
 	unsigned error = lodepng::decode(image, width, height, filename);
 	if (error) {
 		std::cout << "decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
-		system("pause");
+		//system("pause");
 		return 0;
 	}
 
